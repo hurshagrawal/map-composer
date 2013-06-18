@@ -1,0 +1,17 @@
+%html
+  %body
+    %form{ action: '/image', method: 'post' }
+      Top left corner image:
+      %input{ type: 'text', name: 'image_url' }
+
+      %br
+
+      Number of horizontal panels
+      %input{ type: 'text', name: 'x_count' }
+
+      %br
+
+      Number of vertical panels:
+      %input{ type: 'text', name: 'y_count' }
+
+      %input{ type: 'submit', value: 'Submit' }
