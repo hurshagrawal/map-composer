@@ -40,6 +40,8 @@ post '/image' do
 
         if response.body[/Error/]
           # If errors (which this seems to occasionally), retry
+
+          errors << url
           request = Typhoeus::Request.new(url, method: :get)
           request.on_complete do |response|
             blob_grid[row_index][column_index] = response.body
@@ -62,7 +64,15 @@ post '/image' do
   list = ImageList.new
   blob_grid.each do |column|
     column_list = ImageList.new
-    column_list.from_blob(*column)
+
+    begin
+      column_list.from_blob(*column)
+    rescue Magick::ImageMagickError => e
+      puts "ERRORING URLS:"
+      puts errors
+      raise e
+    end
+
     list.push(column_list.append(false))
   end
 
