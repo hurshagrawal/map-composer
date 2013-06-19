@@ -32,22 +32,24 @@ post '/image' do
   # Setup get requests for each slot in the grid
   (x_pos...(x_pos + rows)).each_with_index do |x, row_index|
     (y_pos...(y_pos + columns)).each_with_index do |y, column_index|
+
       url = "#{url_prefix}#{y}/#{x}#{url_extension}"
 
       request = Typhoeus::Request.new(url, method: :get)
       request.on_complete do |response|
         puts "Request #{row_index}-#{column_index} completed!"
 
+        # Retry if errors (which seem to happen occasionally)
         if response.body[/Error/]
-          # If errors (which this seems to occasionally), retry
-
           errors << url
+
           request = Typhoeus::Request.new(url, method: :get)
           request.on_complete do |response|
             blob_grid[row_index][column_index] = response.body
           end
           hydra.queue(request)
 
+        # Else stick the blob into the appropriate grid location
         else
           blob_grid[row_index][column_index] = response.body
         end
@@ -76,9 +78,8 @@ post '/image' do
     list.push(column_list.append(false))
   end
 
-  # Create the image
+  # Create the combined image and return it
   image_name = "img#{url_extension}"
   list.append(true).write(image_name)
-
-  send_file image_name
+  send_file(image_name)
 end
