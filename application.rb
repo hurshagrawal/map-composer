@@ -22,23 +22,53 @@ post '/image' do
   x_pos = matches[:x].to_i
   y_pos = matches[:y].to_i
 
-  blob_grid = Array.new(columns + 1).map { Array.new(rows + 1) }
   hydra = Typhoeus::Hydra.new
 
-  (x_pos..(x_pos + rows)).each_with_index do |x, row_index|
-    (y_pos..(y_pos + columns)).each_with_index do |y, column_index|
+  # Create an empty grid
+  blob_grid = Array.new(columns).map { Array.new(rows) }
+
+  errors = []
+
+  # Setup get requests for each slot in the grid
+  (x_pos...(x_pos + rows)).each_with_index do |x, row_index|
+    (y_pos...(y_pos + columns)).each_with_index do |y, column_index|
       url = "#{url_prefix}#{y}/#{x}#{url_extension}"
 
       request = Typhoeus::Request.new(url, method: :get)
       request.on_complete do |response|
-        blob_grid[column_index][row_index] = response.body
+        puts "Request #{row_index}-#{column_index} completed!"
+
+        if response.body[/Error/]
+          # If errors (which this seems to occasionally), retry
+          request = Typhoeus::Request.new(url, method: :get)
+          request.on_complete do |response|
+            blob_grid[row_index][column_index] = response.body
+          end
+          hydra.queue(request)
+
+        else
+          blob_grid[row_index][column_index] = response.body
+        end
       end
 
       hydra.queue(request)
     end
   end
 
+  # Run all the requests
   hydra.run
 
-  binding.pry
+  # Create image objects out of blobs
+  list = ImageList.new
+  blob_grid.each do |column|
+    column_list = ImageList.new
+    column_list.from_blob(*column)
+    list.push(column_list.append(false))
+  end
+
+  # Create the image
+  image_name = "img#{url_extension}"
+  list.append(true).write(image_name)
+
+  send_file image_name
 end
